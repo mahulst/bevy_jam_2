@@ -39,7 +39,37 @@ struct WheatMeshHandle {
 }
 
 fn setup_mesh(mut meshes: ResMut<Assets<Mesh>>, mut wheat_mesh: ResMut<WheatMeshHandle>) {
-    let mesh = Mesh::from(shape::Cube { size: 0.5 });
+    let mut mesh = Mesh::from(shape::Cube { size: 0.5 });
+    // mesh.insert_attribute(
+    //     Mesh::ATTRIBUTE_COLOR,
+    //     vec![
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //         [1.0, 1.0, 0.0, 1.0],
+    //         [1.0, 0.0, 0.0, 1.0],
+    //         [0.0, 1.0, 0.0, 1.0],
+    //     ],
+    // );
+
     let handle = meshes.add(mesh);
     wheat_mesh.handle = handle;
 }
@@ -53,7 +83,7 @@ fn setup(mut commands: Commands, wheat_mesh: Res<WheatMeshHandle>) {
             (1..=10)
                 .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
                 .map(|(x, y)| InstanceData {
-                    position: Vec3::new(x * 10.0 - 5.0,  0.0, y * 10.0 - 5.0),
+                    position: Vec3::new(x * 10.0 - 5.0, 0.0, y * 10.0 - 5.0),
                     scale: 1.0,
                     color: Color::hsla(x * 360., y, 0.5, 1.0).as_rgba_f32(),
                 })
@@ -63,8 +93,6 @@ fn setup(mut commands: Commands, wheat_mesh: Res<WheatMeshHandle>) {
         ComputedVisibility::default(),
         NoFrustumCulling,
     ));
-
-
 }
 
 #[derive(Component, Deref)]
