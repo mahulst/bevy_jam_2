@@ -1,19 +1,20 @@
+mod wheat;
+
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::gltf::Gltf;
 use bevy::prelude::*;
-use bevy_hanabi::{
-    AccelModifier, BillboardModifier, ColorOverLifetimeModifier, EffectAsset, Gradient,
-    HanabiPlugin, ParticleEffect, ParticleEffectBundle, PositionSphereModifier, ShapeDimension,
-    Spawner,
-};
 use bevy_inspector_egui::WorldInspectorPlugin;
 use crate::shape::Cube;
+use crate::wheat::WheatPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
+        .add_plugin(WheatPlugin)
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(spawn_gltf)
-        .add_plugin(HanabiPlugin)
         .add_plugin(WorldInspectorPlugin::new())
         .run();
 }
@@ -39,7 +40,6 @@ struct MyAssetPack(Handle<Gltf>);
 fn spawn_gltf(
     mut commands: Commands,
     ass: Res<AssetServer>,
-    mut effects: ResMut<Assets<EffectAsset>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
