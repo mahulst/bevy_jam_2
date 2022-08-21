@@ -1,4 +1,5 @@
 mod wheat;
+mod wheat_mesh;
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::gltf::Gltf;
