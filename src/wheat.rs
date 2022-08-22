@@ -1,5 +1,6 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
+use crate::wheat_mesh::get_mesh;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
@@ -21,7 +22,8 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
-use crate::wheat_mesh::get_mesh;
+use noise::utils::{NoiseMapBuilder, PlaneMapBuilder};
+use noise::{Checkerboard, Fbm, MultiFractal, NoiseFn, OpenSimplex, Seedable};
 
 pub struct WheatPlugin;
 
@@ -39,7 +41,6 @@ struct WheatMeshHandle {
     handle: Handle<Mesh>,
 }
 
-
 fn setup_mesh(mut meshes: ResMut<Assets<Mesh>>, mut wheat_mesh: ResMut<WheatMeshHandle>) {
     let mut mesh = get_mesh();
 
@@ -48,17 +49,24 @@ fn setup_mesh(mut meshes: ResMut<Assets<Mesh>>, mut wheat_mesh: ResMut<WheatMesh
 }
 
 fn setup(mut commands: Commands, wheat_mesh: Res<WheatMeshHandle>) {
+    let open_simplex = Fbm::default().set_octaves(1).set_frequency(10.0).set_lacunarity(15.0).set_persistence(100.0);
     commands.spawn().insert_bundle((
         wheat_mesh.handle.clone(),
         Transform::from_xyz(0.0, 0.0, 0.0),
         GlobalTransform::default(),
         InstanceMaterialData(
-            (1..=10)
-                .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
-                .map(|(x, y)| InstanceData {
-                    position: Vec3::new(x * 10.0 - 5.0, 0.0, y * 10.0 - 5.0),
-                    scale: 0.5,
-                    color: Color::rgb( 0.536,  0.389,  0.076).as_rgba_f32()
+            (1..=100)
+                .flat_map(|x| (1..=100).map(move |y| (x as f32 / 150.0, y as f32 / 150.0)))
+                .map(|(x, y)| {
+                    let random = open_simplex.get([x as f64 * 150.0, y as f64 * 150.0, 0.0]);
+                    let random2 = open_simplex.get([x as f64 , y as f64 , 200.0]) / 10.0 ;
+                    let random3 = open_simplex.get([x as f64 , y as f64 , 4000.0]) / 20.0;
+                    InstanceData {
+                        position: Vec3::new(x * 10.0 - 5.0, 0.0, y * 10.0 - 5.0),
+                        scale: 0.5 + random as f32 / 50.0,
+                        rotation: Vec3::new(random2 as f32, 0.0, random3 as f32),
+                        color: Color::rgb(0.536, 0.389, 0.076).as_rgba_f32(),
+                    }
                 })
                 .collect(),
         ),
@@ -100,6 +108,7 @@ struct InstanceData {
     position: Vec3,
     scale: f32,
     color: [f32; 4],
+    rotation: Vec3,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -207,6 +216,11 @@ impl SpecializedMeshPipeline for CustomPipeline {
                     format: VertexFormat::Float32x4,
                     offset: VertexFormat::Float32x4.size(),
                     shader_location: 4,
+                },
+                VertexAttribute {
+                    format: VertexFormat::Float32x3,
+                    offset: VertexFormat::Float32x4.size() * 2,
+                    shader_location: 5,
                 },
             ],
         });
