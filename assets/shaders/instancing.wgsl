@@ -20,6 +20,7 @@ struct Vertex {
 
     @location(3) i_pos_scale: vec4<f32>,
     @location(4) i_color: vec4<f32>,
+    @location(5) rotation: vec3<f32>,
 };
 
 struct VertexOutput {
@@ -31,7 +32,8 @@ struct VertexOutput {
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
+    let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz + vertex.rotation;
+
     var out: VertexOutput;
     out.world_position = mesh_position_local_to_world(mesh.model, vec4<f32>(position, 1.0));
     out.world_normal = mesh_normal_local_to_world(vertex.normal);
