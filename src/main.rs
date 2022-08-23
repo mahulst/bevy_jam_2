@@ -13,17 +13,17 @@ use crate::wheat::WheatPlugin;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
         // .add_plugin(WheatPlugin)
         .add_plugin(HarvestorPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(WorldInspectorPlugin::new())
+        // .add_plugin(LogDiagnosticsPlugin::default())
+        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .run();
 }
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_translation(Vec3::new(4.0001, 3.0, 0.0))
+        transform: Transform::from_translation(Vec3::new(0.0001, 3.0, -4.0))
             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ..Default::default()
     });
