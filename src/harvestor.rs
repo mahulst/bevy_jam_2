@@ -1,8 +1,8 @@
-use crate::Keyframes::Rotation;
 use bevy::prelude::*;
 use bevy_easings::EaseFunction::QuadraticIn;
 use bevy_easings::*;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
+
 
 pub struct HarvestorPlugin;
 
@@ -45,11 +45,13 @@ fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: Vec2) {
     commands
         .spawn_bundle(SceneBundle {
             scene: gltf,
-            transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::from([
-                HARVESTOR_SCALE,
-                HARVESTOR_SCALE,
-                HARVESTOR_SCALE,
-            ])).looking_at(command_to_direction(&HarvestorCommands::Left), Vec3::Y),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                .with_scale(Vec3::from([
+                    HARVESTOR_SCALE,
+                    HARVESTOR_SCALE,
+                    HARVESTOR_SCALE,
+                ]))
+                .looking_at(command_to_direction(&HarvestorCommands::Left), Vec3::Y),
 
             ..Default::default()
         })
@@ -80,20 +82,9 @@ fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
         HarvestorCommands::Right => -Vec3::X,
     }
 }
-fn command_to_degrees(input: &HarvestorCommands) -> f32 {
-    match input {
-        HarvestorCommands::Right => 0.0,
-        HarvestorCommands::Down => 90.0,
-        HarvestorCommands::Left => 180.0,
-        HarvestorCommands::Up => 270.0,
-    }
-}
 
-fn watch_havestor_finished_moves(
-    mut harvestor_q: Query<(Entity, &Transform, &mut Harvestor)>,
-    time: Res<Time>,
-) {
-    harvestor_q.iter_mut().for_each(|(e, tf, mut h)| {
+fn watch_havestor_finished_moves(mut harvestor_q: Query<&mut Harvestor>, time: Res<Time>) {
+    harvestor_q.iter_mut().for_each(|mut h| {
         let delta = time.delta();
         if let Some(ref mut timer) = h.moving {
             timer.tick(delta);
@@ -107,7 +98,10 @@ fn watch_havestor_finished_moves(
 
 fn move_harvestor(
     mut commands: Commands,
-    mut harvestor_q: Query<(Entity, &Transform, &mut InputCommands, &mut Harvestor), Without<EasingComponent<Transform>>>,
+    mut harvestor_q: Query<
+        (Entity, &Transform, &mut InputCommands, &mut Harvestor),
+        Without<EasingComponent<Transform>>,
+    >,
 ) {
     harvestor_q
         .iter_mut()
@@ -120,7 +114,6 @@ fn move_harvestor(
                 return;
             }
             if let Some(cmd) = input_commands.commands.get(0) {
-                println!("receiving command {:?} (now pointing {:?})", cmd, h.direction);
                 let dir = command_to_direction(cmd);
                 if h.direction == *cmd {
                     let mut new_tf = tf.clone();
@@ -132,12 +125,9 @@ fn move_harvestor(
                             duration: std::time::Duration::from_secs_f32(HARVESTOR_MOVEMENT_TIME),
                         },
                     );
-                    println!("Only move {:?} (current pos {:?} to {:?})", cmd, tf.translation, new_tf.translation);
-                    dbg!(&easing_component);
                     commands.entity(e).insert(easing_component);
                     input_commands.commands.remove(0);
                 } else {
-                    println!("Turn {:?} (from h.direction {:?})", cmd, h.direction);
                     let mut new_tf = tf.clone();
                     new_tf.look_at(dir + tf.translation, Vec3::Y);
                     let a = tf.ease_to(
@@ -159,29 +149,26 @@ fn move_harvestor(
         });
 }
 
-fn keyboard_input(
-    keys: Res<Input<KeyCode>>,
-    mut query: Query<(Entity, &Harvestor, &mut InputCommands)>,
-) {
+fn keyboard_input(keys: Res<Input<KeyCode>>, mut query: Query<&mut InputCommands>) {
     if keys.just_released(KeyCode::Left) {
-        query.iter_mut().for_each(|(e, h, mut ic)| {
+        query.iter_mut().for_each(|mut ic| {
             ic.commands.push(HarvestorCommands::Left);
         });
     } else if keys.just_released(KeyCode::Right) {
-        query.iter_mut().for_each(|(e, h, mut ic)| {
+        query.iter_mut().for_each(|mut ic| {
             ic.commands.push(HarvestorCommands::Right);
         });
     } else if keys.just_released(KeyCode::Up) {
-        query.iter_mut().for_each(|(e, h, mut ic)| {
+        query.iter_mut().for_each(|mut ic| {
             ic.commands.push(HarvestorCommands::Up);
         });
     } else if keys.just_released(KeyCode::Down) {
-        query.iter_mut().for_each(|(e, h, mut ic)| {
+        query.iter_mut().for_each(|mut ic| {
             ic.commands.push(HarvestorCommands::Down);
         });
     };
     if keys.just_released(KeyCode::Return) {
-        query.iter_mut().for_each(|(e, h, mut ic)| {
+        query.iter_mut().for_each(|mut ic| {
             ic.clear = true;
         });
     }
