@@ -1,6 +1,5 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
-use crate::wheat_mesh::get_mesh;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
@@ -16,14 +15,15 @@ use bevy::{
             SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
+        RenderApp,
         renderer::RenderDevice,
-        view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
-        RenderApp, RenderStage,
+        RenderStage, view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
     },
 };
 use bytemuck::{Pod, Zeroable};
-use noise::utils::{NoiseMapBuilder, PlaneMapBuilder};
-use noise::{Checkerboard, Fbm, MultiFractal, NoiseFn, OpenSimplex, Seedable};
+use noise::{Fbm, MultiFractal, NoiseFn};
+
+use crate::wheat_mesh::get_mesh;
 
 pub struct WheatPlugin;
 
@@ -42,7 +42,7 @@ struct WheatMeshHandle {
 }
 
 fn setup_mesh(mut meshes: ResMut<Assets<Mesh>>, mut wheat_mesh: ResMut<WheatMeshHandle>) {
-    let mut mesh = get_mesh();
+    let mesh = get_mesh();
 
     let handle = meshes.add(mesh);
     wheat_mesh.handle = handle;

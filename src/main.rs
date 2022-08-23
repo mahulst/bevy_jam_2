@@ -1,14 +1,12 @@
+use bevy::prelude::*;
+use bevy_inspector_egui::WorldInspectorPlugin;
+
+use crate::harvestor::HarvestorPlugin;
+// use crate::wheat::WheatPlugin;
+
 mod wheat;
 mod wheat_mesh;
 mod harvestor;
-
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::gltf::Gltf;
-use bevy::prelude::*;
-use bevy_inspector_egui::WorldInspectorPlugin;
-use crate::harvestor::{ HarvestorPlugin};
-use crate::shape::Cube;
-use crate::wheat::WheatPlugin;
 
 fn main() {
     App::new()
@@ -21,7 +19,7 @@ fn main() {
         // .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .run();
 }
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_translation(Vec3::new(0.0001, 3.0, -4.0))
             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
