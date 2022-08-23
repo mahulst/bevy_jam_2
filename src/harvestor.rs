@@ -18,7 +18,7 @@ impl Plugin for HarvestorPlugin {
     }
 }
 const HARVESTOR_SCALE: f32 = 0.001;
-const HARVESTOR_MOVEMENT_TIME: f32 = 5.0;
+const HARVESTOR_MOVEMENT_TIME: f32 = 0.5;
 
 #[derive(Debug, Inspectable, Default, PartialEq, Clone)]
 enum HarvestorCommands {
@@ -107,7 +107,7 @@ fn watch_havestor_finished_moves(
 
 fn move_harvestor(
     mut commands: Commands,
-    mut harvestor_q: Query<(Entity, &Transform, &mut InputCommands, &mut Harvestor)>,
+    mut harvestor_q: Query<(Entity, &Transform, &mut InputCommands, &mut Harvestor), Without<EasingComponent<Transform>>>,
 ) {
     harvestor_q
         .iter_mut()
@@ -125,7 +125,7 @@ fn move_harvestor(
                 if h.direction == *cmd {
                     let mut new_tf = tf.clone();
                     new_tf.translation += dir;
-                    let a = tf.ease_to(
+                    let easing_component = tf.ease_to(
                         new_tf,
                         QuadraticIn,
                         bevy_easings::EasingType::Once {
@@ -133,9 +133,9 @@ fn move_harvestor(
                         },
                     );
                     println!("Only move {:?} (current pos {:?} to {:?})", cmd, tf.translation, new_tf.translation);
-                    dbg!(&a);
+                    dbg!(&easing_component);
+                    commands.entity(e).insert(easing_component);
                     input_commands.commands.remove(0);
-                    commands.entity(e).insert(a);
                 } else {
                     println!("Turn {:?} (from h.direction {:?})", cmd, h.direction);
                     let mut new_tf = tf.clone();
