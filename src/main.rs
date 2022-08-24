@@ -1,18 +1,22 @@
 use bevy::prelude::*;
 use bevy_inspector_egui::WorldInspectorPlugin;
+use crate::field::FieldPlugin;
 
 use crate::harvestor::HarvestorPlugin;
 // use crate::wheat::WheatPlugin;
 
+mod field;
+mod harvestor;
 mod wheat;
 mod wheat_mesh;
-mod harvestor;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
+        .add_plugin(FieldPlugin)
+        .add_system(bevy::window::close_on_esc)
         // .add_plugin(WheatPlugin)
         .add_plugin(HarvestorPlugin)
         // .add_plugin(LogDiagnosticsPlugin::default())
@@ -34,4 +38,3 @@ fn setup(mut commands: Commands) {
             ..default()
         });
 }
-
