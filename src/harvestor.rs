@@ -60,7 +60,7 @@ fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: Vec2) {
             ..Default::default()
         })
         .insert(Harvestor {
-            position: position,
+            position,
             direction: HarvestorCommands::Left,
             moving: None,
         })
@@ -121,7 +121,7 @@ fn move_harvestor(
             if let Some(cmd) = input_commands.commands.get(0) {
                 let dir = command_to_direction(cmd);
                 if h.direction == *cmd {
-                    let mut new_tf = tf.clone();
+                    let mut new_tf = *tf;
                     new_tf.translation += dir;
                     let easing_component = tf.ease_to(
                         new_tf,
@@ -133,7 +133,7 @@ fn move_harvestor(
                     commands.entity(e).insert(easing_component);
                     input_commands.commands.remove(0);
                 } else {
-                    let mut new_tf = tf.clone();
+                    let mut new_tf = *tf;
                     new_tf.look_at(dir + tf.translation, Vec3::Y);
                     let a = tf.ease_to(
                         new_tf,
