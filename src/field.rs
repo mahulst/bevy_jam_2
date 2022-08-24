@@ -40,6 +40,12 @@ fn render_fields(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     query.iter().for_each(|(e, field)| {
+        let pos = match field.field_type {
+            FieldType::Target => -Vec3::X,
+            FieldType::Canvas => Vec3::X
+        };
+        let pos = pos * 2.0 - Vec3::X;
+
         let mut entity = commands.entity(e);
         entity.insert_bundle(SpatialBundle { ..default() });
 
@@ -52,7 +58,7 @@ fn render_fields(
                     cb.spawn().insert_bundle(PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::Cube { size: FIELD_SIZE })),
                         material: materials.add(Color::rgb(0.4, 0.2, 0.0).into()),
-                        transform: Transform::from_xyz(x, 0.0, y)
+                        transform: Transform::from_xyz(x + pos.x, 0.0, y)
                             .with_scale(Vec3::new(1.0, FIELD_THICKNESS, 1.0)),
                         ..default()
                     });
