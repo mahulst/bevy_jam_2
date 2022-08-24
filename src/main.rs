@@ -1,9 +1,8 @@
+use crate::field::FieldPlugin;
 use bevy::prelude::*;
 use bevy_inspector_egui::WorldInspectorPlugin;
-use crate::field::FieldPlugin;
 
 use crate::harvestor::HarvestorPlugin;
-// use crate::wheat::WheatPlugin;
 
 mod field;
 mod harvestor;

@@ -5,7 +5,7 @@ const GRAIN_LENGTH: f32 = 0.3;
 const GRAIN_WIDTH: f32 = 0.03;
 
 pub fn get_mesh() -> Mesh {
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
         let indices = bevy::render::mesh::Indices::U32(vec![
         // Grain top
         0,1,2,
@@ -40,9 +40,7 @@ pub fn get_mesh() -> Mesh {
 
     ]);
 
-
-
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     let vertices = [
         // top grain
         ([-GRAIN_WIDTH, STALK_LENGTH + GRAIN_LENGTH, GRAIN_WIDTH], [0.0, 1.0, 0.0]),

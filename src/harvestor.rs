@@ -1,9 +1,8 @@
+use crate::field::{FIELD_MARGIN_SIZE, FIELD_SIZE, FIELD_THICKNESS};
 use bevy::prelude::*;
 use bevy_easings::EaseFunction::QuadraticIn;
 use bevy_easings::*;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
-use crate::field::{FIELD_MARGIN_SIZE, FIELD_SIZE, FIELD_THICKNESS};
-
 
 pub struct HarvestorPlugin;
 
@@ -43,7 +42,7 @@ fn setup(mut commands: Commands, ass: Res<AssetServer>) {
 fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: Vec2) {
     let gltf: Handle<Scene> = ass.load("harvestor.glb#Scene0");
 
-    let start_pos = Vec3::new(-0.9, FIELD_THICKNESS + 0.05, -0.2);;
+    let start_pos = Vec3::new(-0.9, FIELD_THICKNESS + 0.05, -0.2);
     commands
         .spawn_bundle(SceneBundle {
             scene: gltf,
@@ -53,7 +52,10 @@ fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: Vec2) {
                     HARVESTOR_SCALE,
                     HARVESTOR_SCALE,
                 ]))
-                .looking_at(command_to_direction(&HarvestorCommands::Left )+ start_pos, Vec3::Y),
+                .looking_at(
+                    command_to_direction(&HarvestorCommands::Left) + start_pos,
+                    Vec3::Y,
+                ),
 
             ..Default::default()
         })
@@ -77,13 +79,13 @@ struct Harvestor {
 }
 
 fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
-   let vec = match input {
+    let vec = match input {
         HarvestorCommands::Up => Vec3::Z,
         HarvestorCommands::Down => -Vec3::Z,
         HarvestorCommands::Left => Vec3::X,
         HarvestorCommands::Right => -Vec3::X,
-    } ;
-    vec *  (FIELD_SIZE + FIELD_MARGIN_SIZE)
+    };
+    vec * (FIELD_SIZE + FIELD_MARGIN_SIZE)
 }
 
 fn watch_havestor_finished_moves(mut harvestor_q: Query<&mut Harvestor>, time: Res<Time>) {
@@ -174,6 +176,5 @@ fn keyboard_input(keys: Res<Input<KeyCode>>, mut query: Query<&mut InputCommands
         query.iter_mut().for_each(|mut ic| {
             ic.clear = true;
         });
-
     }
 }
