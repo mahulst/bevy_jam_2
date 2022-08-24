@@ -43,17 +43,17 @@ fn setup(mut commands: Commands, ass: Res<AssetServer>) {
 fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: Vec2) {
     let gltf: Handle<Scene> = ass.load("harvestor.glb#Scene0");
 
-    let pos = Vec3::new(0.0, FIELD_THICKNESS + 0.05, 0.0);
+    let start_pos = Vec3::new(-0.9, FIELD_THICKNESS + 0.05, -0.2);;
     commands
         .spawn_bundle(SceneBundle {
             scene: gltf,
-            transform: Transform::from_xyz(pos.x, pos.y, pos.z)
+            transform: Transform::from_xyz(start_pos.x, start_pos.y, start_pos.z)
                 .with_scale(Vec3::from([
                     HARVESTOR_SCALE,
                     HARVESTOR_SCALE,
                     HARVESTOR_SCALE,
                 ]))
-                .looking_at(command_to_direction(&HarvestorCommands::Left )+ pos, Vec3::Y),
+                .looking_at(command_to_direction(&HarvestorCommands::Left )+ start_pos, Vec3::Y),
 
             ..Default::default()
         })
