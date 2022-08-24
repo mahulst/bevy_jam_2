@@ -15,9 +15,9 @@ use bevy::{
             SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
-        RenderApp,
         renderer::RenderDevice,
-        RenderStage, view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
+        view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
+        RenderApp, RenderStage,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -49,7 +49,11 @@ fn setup_mesh(mut meshes: ResMut<Assets<Mesh>>, mut wheat_mesh: ResMut<WheatMesh
 }
 
 fn setup(mut commands: Commands, wheat_mesh: Res<WheatMeshHandle>) {
-    let open_simplex = Fbm::default().set_octaves(1).set_frequency(10.0).set_lacunarity(15.0).set_persistence(100.0);
+    let open_simplex = Fbm::default()
+        .set_octaves(1)
+        .set_frequency(10.0)
+        .set_lacunarity(15.0)
+        .set_persistence(100.0);
     commands.spawn().insert_bundle((
         wheat_mesh.handle.clone(),
         Transform::from_xyz(0.0, 0.0, 0.0),
@@ -59,8 +63,8 @@ fn setup(mut commands: Commands, wheat_mesh: Res<WheatMeshHandle>) {
                 .flat_map(|x| (1..=100).map(move |y| (x as f32 / 150.0, y as f32 / 150.0)))
                 .map(|(x, y)| {
                     let random = open_simplex.get([x as f64 * 150.0, y as f64 * 150.0, 0.0]);
-                    let random2 = open_simplex.get([x as f64 , y as f64 , 200.0]) / 10.0 ;
-                    let random3 = open_simplex.get([x as f64 , y as f64 , 4000.0]) / 20.0;
+                    let random2 = open_simplex.get([x as f64, y as f64, 200.0]) / 10.0;
+                    let random3 = open_simplex.get([x as f64, y as f64, 4000.0]) / 20.0;
                     InstanceData {
                         position: Vec3::new(x * 10.0 - 5.0, 0.0, y * 10.0 - 5.0),
                         scale: 0.5 + random as f32 / 50.0,
