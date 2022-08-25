@@ -145,7 +145,7 @@ fn render_fields(
 // this ok?
 fn change_mowed_material(
     field_q: Query<(&Field, &Children)>,
-    mut field_square_q: Query<(&FieldSquareMarker)>,
+    field_square_q: Query<&FieldSquareMarker>,
     mut commands: Commands,
     field_material: Res<FieldMaterialResource>,
 ) {
@@ -154,7 +154,7 @@ fn change_mowed_material(
             return;
         }
         children.iter().for_each(|field_square_entity| {
-            if let Ok((fs)) = field_square_q.get(*field_square_entity) {
+            if let Ok(fs) = field_square_q.get(*field_square_entity) {
                 let is_mowed = field.mowed.contains_key(&(fs.0.x as i32, fs.0.y as i32));
 
                 if is_mowed {
