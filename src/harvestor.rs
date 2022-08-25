@@ -20,6 +20,15 @@ impl Plugin for HarvestorPlugin {
 const HARVESTOR_SCALE: f32 = 0.0004;
 const HARVESTOR_MOVEMENT_TIME: f32 = 0.5;
 
+#[derive(Component, Inspectable, Default)]
+pub struct Harvestor {
+    pub position: IVec2,
+    direction: HarvestorCommands,
+    #[inspectable(ignore)]
+    moving: Option<Timer>,
+    turning: bool,
+}
+
 #[derive(Debug, Inspectable, Default, PartialEq, Clone)]
 enum HarvestorCommands {
     #[default]
@@ -36,13 +45,13 @@ struct InputCommands {
 }
 
 fn setup(mut commands: Commands, ass: Res<AssetServer>) {
-    spawn(&mut commands, &ass, Vec2::new(0.0, 1.0));
+    spawn(&mut commands, &ass, IVec2::new(0, -1));
 }
 
-fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: Vec2) {
+fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: IVec2) {
     let gltf: Handle<Scene> = ass.load("harvestor.glb#Scene0");
 
-    let start_pos = Vec3::new(-0.9, FIELD_THICKNESS + 0.05, -0.2);
+    let start_pos = Vec3::new(-1.0, FIELD_THICKNESS + 0.05, -0.2);
     commands
         .spawn_bundle(SceneBundle {
             scene: gltf,
@@ -63,19 +72,12 @@ fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: Vec2) {
             position,
             direction: HarvestorCommands::Left,
             moving: None,
+            turning: false
         })
         .insert(InputCommands {
             commands: vec![],
             clear: false,
         });
-}
-
-#[derive(Component, Inspectable, Default)]
-struct Harvestor {
-    position: Vec2,
-    direction: HarvestorCommands,
-    #[inspectable(ignore)]
-    moving: Option<Timer>,
 }
 
 fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
@@ -85,7 +87,7 @@ fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
         HarvestorCommands::Left => Vec3::X,
         HarvestorCommands::Right => -Vec3::X,
     };
-    vec * (FIELD_SIZE + FIELD_MARGIN_SIZE)
+    vec
 }
 
 fn watch_havestor_finished_moves(mut harvestor_q: Query<&mut Harvestor>, time: Res<Time>) {
@@ -96,6 +98,12 @@ fn watch_havestor_finished_moves(mut harvestor_q: Query<&mut Harvestor>, time: R
 
             if timer.just_finished() {
                 h.moving = None;
+                if !h.turning {
+                    let a = command_to_direction(&h.direction);
+                    h.position.x -= a.x as i32;
+                    h.position.y += a.z as i32;
+                }
+                h.turning = false;
             }
         }
     });
@@ -120,9 +128,10 @@ fn move_harvestor(
             }
             if let Some(cmd) = input_commands.commands.get(0) {
                 let dir = command_to_direction(cmd);
+                let vector_distance = dir * (FIELD_SIZE + FIELD_MARGIN_SIZE);
                 if h.direction == *cmd {
                     let mut new_tf = *tf;
-                    new_tf.translation += dir;
+                    new_tf.translation += vector_distance;
                     let easing_component = tf.ease_to(
                         new_tf,
                         QuadraticIn,
@@ -130,11 +139,12 @@ fn move_harvestor(
                             duration: std::time::Duration::from_secs_f32(HARVESTOR_MOVEMENT_TIME),
                         },
                     );
+
                     commands.entity(e).insert(easing_component);
                     input_commands.commands.remove(0);
                 } else {
                     let mut new_tf = *tf;
-                    new_tf.look_at(dir + tf.translation, Vec3::Y);
+                    new_tf.look_at(vector_distance + tf.translation, Vec3::Y);
                     let a = tf.ease_to(
                         new_tf,
                         QuadraticIn,
@@ -144,6 +154,7 @@ fn move_harvestor(
                     );
                     commands.entity(e).insert(a);
                     h.direction = cmd.clone();
+                    h.turning = true;
                 };
                 h.moving = Timer::from_seconds(HARVESTOR_MOVEMENT_TIME, false).into();
             }
