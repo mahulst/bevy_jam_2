@@ -72,7 +72,7 @@ fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: IVec2) {
             position,
             direction: HarvestorCommands::Left,
             moving: None,
-            turning: false
+            turning: false,
         })
         .insert(InputCommands {
             commands: vec![],
@@ -81,13 +81,12 @@ fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: IVec2) {
 }
 
 fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
-    let vec = match input {
+    match input {
         HarvestorCommands::Up => Vec3::Z,
         HarvestorCommands::Down => -Vec3::Z,
         HarvestorCommands::Left => Vec3::X,
         HarvestorCommands::Right => -Vec3::X,
-    };
-    vec
+    }
 }
 
 fn watch_havestor_finished_moves(mut harvestor_q: Query<&mut Harvestor>, time: Res<Time>) {
