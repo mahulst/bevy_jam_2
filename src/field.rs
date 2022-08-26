@@ -1,3 +1,4 @@
+
 use crate::harvestor::{Harvestor, HarvestorCommandsClearedEvent};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
@@ -220,7 +221,6 @@ fn compare_fields(field_target: &Field, field_canvas: &Field) -> MowResult {
         .flat_map(|x| (0..field_target.size.x).map(move |y| (x as i32, y as i32)))
     {
         let mowed = field_target.mowed.get(&coord).unwrap_or(&false);
-        dbg!(mowed, coord);
         if !mowed && !field_canvas.mowed.contains_key(&coord) {
             return MowResult::TooLittle;
         }

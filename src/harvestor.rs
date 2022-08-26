@@ -1,22 +1,80 @@
 use crate::field::{FIELD_MARGIN_SIZE, FIELD_SIZE, FIELD_THICKNESS};
+use crate::ui::{CountDownMarkerMilliSeconds, CountDownMarkerSeconds};
 use bevy::prelude::*;
 use bevy_easings::EaseFunction::QuadraticIn;
 use bevy_easings::*;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
+use iyes_loopless::prelude::*;
+use std::time::Instant;
 
 pub struct HarvestorPlugin;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum HarvestorState {
+    AcceptingCommands,
+    Running,
+    Done,
+}
 
 impl Plugin for HarvestorPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
+            .add_loopless_state(HarvestorState::AcceptingCommands)
             .add_event::<HarvestorCommandsClearedEvent>()
             .add_system(move_harvestor)
+            .init_resource::<TimeSpentWaitingOnCommands>()
+            .add_enter_system(HarvestorState::AcceptingCommands, reset_time_waiting)
+            .add_system(update_count_down.run_in_state(HarvestorState::AcceptingCommands))
             .register_inspectable::<Harvestor>()
             .register_inspectable::<InputCommands>()
             .add_system(watch_havestor_finished_moves.before(move_harvestor))
             .add_system(keyboard_input.before(move_harvestor))
             .add_plugin(EasingsPlugin);
     }
+}
+
+pub struct TimeSpentWaitingOnCommands {
+    time_start: Instant,
+}
+
+impl Default for TimeSpentWaitingOnCommands {
+    fn default() -> Self {
+        Self {
+            time_start: Instant::now(),
+        }
+    }
+}
+
+fn reset_time_waiting(mut time_waiting: ResMut<TimeSpentWaitingOnCommands>) {
+    time_waiting.time_start = Instant::now();
+}
+
+fn update_count_down(
+    mut seconds_q: Query<
+        &mut Text,
+        (
+            With<CountDownMarkerSeconds>,
+            Without<CountDownMarkerMilliSeconds>,
+        ),
+    >,
+    mut milliseconds_q: Query<
+        &mut Text,
+        (
+            With<CountDownMarkerMilliSeconds>,
+            Without<CountDownMarkerSeconds>,
+        ),
+    >,
+    time_waiting: Res<TimeSpentWaitingOnCommands>,
+) {
+    let time_since = Instant::now() - time_waiting.time_start;
+    let millis = time_since.as_millis().rem_euclid(1000) / 10;
+
+    seconds_q.iter_mut().for_each(|mut text| {
+        text.sections[0].value = format!("{}", time_since.as_secs());
+    });
+    milliseconds_q.iter_mut().for_each(|mut text| {
+        text.sections[0].value = format!("{}", millis);
+    });
 }
 
 pub struct HarvestorCommandsClearedEvent;
@@ -165,12 +223,17 @@ fn move_harvestor(
 
             if input_commands.commands.is_empty() {
                 input_commands.clear = false;
+                commands.insert_resource(NextState(HarvestorState::Done));
                 ev_commands_cleared.send(HarvestorCommandsClearedEvent);
             }
         });
 }
 
-fn keyboard_input(keys: Res<Input<KeyCode>>, mut query: Query<&mut InputCommands>) {
+fn keyboard_input(
+    mut commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    mut query: Query<&mut InputCommands>,
+) {
     if keys.just_released(KeyCode::Left) {
         query.iter_mut().for_each(|mut ic| {
             ic.commands.push(HarvestorCommands::Left);
@@ -190,6 +253,8 @@ fn keyboard_input(keys: Res<Input<KeyCode>>, mut query: Query<&mut InputCommands
     };
     if keys.just_released(KeyCode::Return) {
         query.iter_mut().for_each(|mut ic| {
+            commands.insert_resource(NextState(HarvestorState::Running));
+
             ic.clear = true;
         });
     }

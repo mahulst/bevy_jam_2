@@ -6,6 +6,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy = { version = "0.8" }
+iyes_loopless = "0.7.1"
 bevy-inspector-egui = "0.12.1"
 bytemuck = "1.12.1"
 noise = "0.7.0"
