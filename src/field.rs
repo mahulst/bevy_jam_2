@@ -1,4 +1,4 @@
-use crate::harvestor::Harvestor;
+use crate::harvestor::{Harvestor, HarvestorCommandsClearedEvent};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
@@ -11,6 +11,7 @@ impl Plugin for FieldPlugin {
             .add_system(mow_target_field)
             .init_resource::<FieldMaterialResource>()
             .add_system(change_mowed_material)
+            .add_system(compare_fields_on_commands_cleared.after(mow_target_field))
             .add_startup_system(setup)
             .register_inspectable::<Field>();
     }
@@ -21,13 +22,14 @@ struct FieldMaterialResource {
     mowed: Handle<StandardMaterial>,
     not_mowed: Handle<StandardMaterial>,
 }
-#[derive(Inspectable, PartialEq)]
+#[derive(Inspectable, PartialEq, Default, Debug)]
 enum FieldType {
+    #[default]
     Target,
     Canvas,
 }
 
-#[derive(Component, Inspectable)]
+#[derive(Component, Inspectable, Default, PartialEq, Debug)]
 pub struct Field {
     size: UVec2,
     field_type: FieldType,
@@ -108,8 +110,8 @@ fn render_fields(
         let mut entity = commands.entity(e);
         entity.insert_bundle(SpatialBundle { ..default() });
 
-        (0..=field.size.y)
-            .flat_map(|x| (0..=field.size.x).map(move |y| (x, y)))
+        (0..field.size.y)
+            .flat_map(|x| (0..field.size.x).map(move |y| (x, y)))
             .for_each(|(x, y)| {
                 let material = if field.mowed.contains_key(&(x as i32, y as i32)) {
                     field_material.mowed.clone()
@@ -179,4 +181,179 @@ fn mow_target_field(
             field.mowed.insert((h.position.x, h.position.y), true);
         });
     });
+}
+
+fn compare_fields_on_commands_cleared(
+    mut ev_harvestor_commands_cleared: EventReader<HarvestorCommandsClearedEvent>,
+    field_q: Query<&Field>,
+) {
+    for _ in ev_harvestor_commands_cleared.iter() {
+        let target_field = field_q.iter().find(|f| f.field_type == FieldType::Target);
+        let canvas_field = field_q.iter().find(|f| f.field_type == FieldType::Canvas);
+
+        if let (Some(target), Some(canvas)) = (target_field, canvas_field) {
+            let result = compare_fields(target, canvas);
+
+            dbg!(result);
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+enum MowResult {
+    Perfect,
+    TooMuch,
+    TooLittle,
+}
+
+fn compare_fields(field_target: &Field, field_canvas: &Field) -> MowResult {
+    let _result = false;
+    // canvas should not have mowed a field square that's mowed in target
+    for (coord, mowed) in field_canvas.mowed.iter() {
+        if *mowed && field_target.mowed.contains_key(coord) {
+            return MowResult::TooMuch;
+        }
+    }
+
+    // all target unmowed squared should be mowed in canvas
+    for coord in (0..field_target.size.y)
+        .flat_map(|x| (0..field_target.size.x).map(move |y| (x as i32, y as i32)))
+    {
+        let mowed = field_target.mowed.get(&coord).unwrap_or(&false);
+        dbg!(mowed, coord);
+        if !mowed && !field_canvas.mowed.contains_key(&coord) {
+            return MowResult::TooLittle;
+        }
+    }
+
+    MowResult::Perfect
+}
+
+#[test]
+fn fully_mowed_field() {
+    let mut target_mowed = HashMap::new();
+    target_mowed.insert((0, 0), true);
+    target_mowed.insert((0, 1), true);
+    target_mowed.insert((1, 0), true);
+    target_mowed.insert((1, 1), true);
+
+    let field_target = Field {
+        size: UVec2::new(2, 2),
+        mowed: target_mowed,
+        ..default()
+    };
+    let field_canvas = Field {
+        size: UVec2::new(2, 2),
+        mowed: HashMap::new(),
+        ..default()
+    };
+
+    assert_eq!(
+        compare_fields(&field_target, &field_canvas),
+        MowResult::Perfect
+    );
+}
+
+#[test]
+fn fully_unmowed_field() {
+    let target_mowed = HashMap::new();
+    let field_target = Field {
+        size: UVec2::new(2, 2),
+        mowed: target_mowed,
+        ..default()
+    };
+    let mut canvas_mowed = HashMap::new();
+    canvas_mowed.insert((0, 0), true);
+    canvas_mowed.insert((0, 1), true);
+    canvas_mowed.insert((1, 0), true);
+    canvas_mowed.insert((1, 1), true);
+
+    let field_canvas = Field {
+        size: UVec2::new(2, 2),
+        mowed: canvas_mowed,
+        ..default()
+    };
+
+    assert_eq!(
+        compare_fields(&field_target, &field_canvas),
+        MowResult::Perfect
+    );
+}
+
+#[test]
+fn partial_mowed() {
+    let mut target_mowed = HashMap::new();
+    target_mowed.insert((0, 0), true);
+    target_mowed.insert((0, 1), true);
+    let field_target = Field {
+        size: UVec2::new(2, 2),
+        mowed: target_mowed,
+        ..default()
+    };
+    let mut canvas_mowed = HashMap::new();
+    canvas_mowed.insert((1, 0), true);
+    canvas_mowed.insert((1, 1), true);
+
+    let field_canvas = Field {
+        size: UVec2::new(2, 2),
+        mowed: canvas_mowed,
+        ..default()
+    };
+
+    assert_eq!(
+        compare_fields(&field_target, &field_canvas),
+        MowResult::Perfect
+    );
+}
+
+#[test]
+fn too_little_mowed() {
+    let mut target_mowed = HashMap::new();
+    target_mowed.insert((0, 0), true);
+    target_mowed.insert((0, 1), true);
+    let field_target = Field {
+        size: UVec2::new(2, 2),
+        mowed: target_mowed,
+        ..default()
+    };
+    let mut canvas_mowed = HashMap::new();
+    canvas_mowed.insert((1, 1), true);
+
+    let field_canvas = Field {
+        size: UVec2::new(2, 2),
+        mowed: canvas_mowed,
+        ..default()
+    };
+
+    assert_eq!(
+        compare_fields(&field_target, &field_canvas),
+        MowResult::TooLittle
+    );
+}
+
+#[test]
+fn too_much_mowed() {
+    let mut target_mowed = HashMap::new();
+    target_mowed.insert((0, 0), true);
+    target_mowed.insert((0, 1), true);
+    let field_target = Field {
+        size: UVec2::new(2, 2),
+        mowed: target_mowed,
+        ..default()
+    };
+    let mut canvas_mowed = HashMap::new();
+    canvas_mowed.insert((0, 0), true);
+    canvas_mowed.insert((1, 1), true);
+    canvas_mowed.insert((1, 0), true);
+
+    let field_canvas = Field {
+        size: UVec2::new(2, 2),
+        mowed: canvas_mowed,
+        ..default()
+    };
+
+    assert_eq!(
+        compare_fields(&field_target, &field_canvas),
+        MowResult::TooMuch
+    );
 }

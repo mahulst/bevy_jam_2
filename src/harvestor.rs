@@ -9,6 +9,7 @@ pub struct HarvestorPlugin;
 impl Plugin for HarvestorPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
+            .add_event::<HarvestorCommandsClearedEvent>()
             .add_system(move_harvestor)
             .register_inspectable::<Harvestor>()
             .register_inspectable::<InputCommands>()
@@ -17,6 +18,9 @@ impl Plugin for HarvestorPlugin {
             .add_plugin(EasingsPlugin);
     }
 }
+
+pub struct HarvestorCommandsClearedEvent;
+
 const HARVESTOR_SCALE: f32 = 0.0004;
 const HARVESTOR_MOVEMENT_TIME: f32 = 0.5;
 
@@ -114,6 +118,7 @@ fn move_harvestor(
         (Entity, &Transform, &mut InputCommands, &mut Harvestor),
         Without<EasingComponent<Transform>>,
     >,
+    mut ev_commands_cleared: EventWriter<HarvestorCommandsClearedEvent>,
 ) {
     harvestor_q
         .iter_mut()
@@ -160,6 +165,7 @@ fn move_harvestor(
 
             if input_commands.commands.is_empty() {
                 input_commands.clear = false;
+                ev_commands_cleared.send(HarvestorCommandsClearedEvent);
             }
         });
 }
