@@ -14,7 +14,7 @@ use std::time::Instant;
 pub struct HarvestorPlugin;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum HarvestorState {
+pub enum HarvestorState {
     AcceptingCommands,
     Running,
     Done,
@@ -84,7 +84,7 @@ fn update_count_down(
 pub struct HarvestorCommandsClearedEvent;
 
 const HARVESTOR_SCALE: f32 = 0.0004;
-const HARVESTOR_MOVEMENT_TIME: f32 = 0.5;
+const HARVESTOR_MOVEMENT_TIME: f32 = 0.25;
 
 #[derive(Component, Inspectable, Default)]
 pub struct Harvestor {
@@ -155,7 +155,12 @@ fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
     }
 }
 
-fn watch_havestor_finished_moves(mut harvestor_q: Query<&mut Harvestor>, time: Res<Time>) {
+pub fn watch_havestor_finished_moves(
+    mut harvestor_q: Query<&mut Harvestor>,
+    time: Res<Time>,
+    mut ev_commands_cleared: EventWriter<HarvestorCommandsClearedEvent>,
+    state: Res<CurrentState<HarvestorState>>,
+) {
     harvestor_q.iter_mut().for_each(|mut h| {
         let delta = time.delta();
         if let Some(ref mut timer) = h.moving {
@@ -165,8 +170,13 @@ fn watch_havestor_finished_moves(mut harvestor_q: Query<&mut Harvestor>, time: R
                 h.moving = None;
                 if !h.turning {
                     let a = command_to_direction(&h.direction);
+
                     h.position.x -= a.x as i32;
                     h.position.y += a.z as i32;
+
+                    if state.0 == HarvestorState::Done {
+                        ev_commands_cleared.send(HarvestorCommandsClearedEvent);
+                    }
                 }
                 h.turning = false;
             }
@@ -180,7 +190,6 @@ fn move_harvestor(
         (Entity, &Transform, &mut InputCommands, &mut Harvestor),
         Without<EasingComponent<Transform>>,
     >,
-    mut ev_commands_cleared: EventWriter<HarvestorCommandsClearedEvent>,
 ) {
     harvestor_q
         .iter_mut()
@@ -228,7 +237,6 @@ fn move_harvestor(
             if input_commands.commands.is_empty() {
                 input_commands.clear = false;
                 commands.insert_resource(NextState(HarvestorState::Done));
-                ev_commands_cleared.send(HarvestorCommandsClearedEvent);
             }
         });
 }

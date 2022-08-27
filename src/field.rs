@@ -1,4 +1,4 @@
-use crate::harvestor::{Harvestor, HarvestorCommandsClearedEvent};
+use crate::harvestor::{watch_havestor_finished_moves, Harvestor, HarvestorCommandsClearedEvent};
 use crate::ui::{update_help_text, FontHandle, HelpTextContainer};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
@@ -9,7 +9,7 @@ pub struct FieldPlugin;
 impl Plugin for FieldPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(render_fields)
-            .add_system(mow_target_field)
+            .add_system(mow_target_field.after(watch_havestor_finished_moves))
             .init_resource::<FieldMaterialResource>()
             .add_system(change_mowed_material)
             .add_system(compare_fields_on_commands_cleared.after(mow_target_field))
@@ -50,35 +50,15 @@ fn setup(
 
     let mut target_mowed = HashMap::new();
     target_mowed.insert((0, 0), true);
-    target_mowed.insert((0, 1), true);
-    target_mowed.insert((0, 2), true);
-    target_mowed.insert((0, 3), true);
-    target_mowed.insert((0, 4), true);
-    target_mowed.insert((1, 4), true);
-    target_mowed.insert((2, 4), true);
-    target_mowed.insert((3, 4), true);
-    target_mowed.insert((4, 4), true);
-    target_mowed.insert((4, 5), true);
-    target_mowed.insert((4, 6), true);
-    target_mowed.insert((4, 7), true);
-    target_mowed.insert((4, 8), true);
-    target_mowed.insert((5, 8), true);
-    target_mowed.insert((6, 8), true);
-    target_mowed.insert((7, 8), true);
-    target_mowed.insert((8, 8), true);
-    target_mowed.insert((8, 9), true);
-    target_mowed.insert((9, 9), true);
-    target_mowed.insert((9, 10), true);
-    target_mowed.insert((10, 10), true);
     commands.spawn().insert(Field {
         size: UVec2::new(10, 10),
         field_type: FieldType::Target,
-        mowed: HashMap::new(),
+        mowed: target_mowed,
     });
     commands.spawn().insert(Field {
         size: UVec2::new(10, 10),
         field_type: FieldType::Canvas,
-        mowed: target_mowed,
+        mowed: HashMap::new(),
     });
 }
 
@@ -103,8 +83,8 @@ fn render_fields(
 
     query.iter().for_each(|(e, field)| {
         let pos = match field.field_type {
-            FieldType::Target => -Vec3::X,
-            FieldType::Canvas => Vec3::X,
+            FieldType::Target => Vec3::X,
+            FieldType::Canvas => -Vec3::X,
         };
         let field_type_offset = pos * 2.0 + Vec3::X;
 
@@ -114,7 +94,7 @@ fn render_fields(
         (0..field.size.y)
             .flat_map(|x| (0..field.size.x).map(move |y| (x, y)))
             .for_each(|(x, y)| {
-                let material = if field.mowed.contains_key(&(x as i32, y as i32)) {
+                let material = if *field.mowed.get(&(x as i32, y as i32)).unwrap_or(&false) {
                     field_material.mowed.clone()
                 } else {
                     field_material.not_mowed.clone()
@@ -153,14 +133,17 @@ fn change_mowed_material(
     field_material: Res<FieldMaterialResource>,
 ) {
     field_q.iter().for_each(|(field, children)| {
-        if field.field_type != FieldType::Target {
+        if field.field_type != FieldType::Canvas {
             return;
         }
         children.iter().for_each(|field_square_entity| {
             if let Ok(fs) = field_square_q.get(*field_square_entity) {
-                let is_mowed = field.mowed.contains_key(&(fs.0.x as i32, fs.0.y as i32));
+                let is_mowed = field
+                    .mowed
+                    .get(&(fs.0.x as i32, fs.0.y as i32))
+                    .unwrap_or(&false);
 
-                if is_mowed {
+                if *is_mowed {
                     commands
                         .entity(*field_square_entity)
                         .insert(field_material.mowed.clone());
@@ -176,7 +159,7 @@ fn mow_target_field(
 ) {
     harvestor_q.iter().for_each(|h| {
         field_q.iter_mut().for_each(|mut field| {
-            if field.field_type != FieldType::Target {
+            if field.field_type != FieldType::Canvas {
                 return;
             }
             field.mowed.insert((h.position.x, h.position.y), true);
@@ -220,8 +203,11 @@ enum MowResult {
 fn compare_fields(field_target: &Field, field_canvas: &Field) -> MowResult {
     let _result = false;
     // canvas should not have mowed a field square that's mowed in target
-    for (coord, mowed) in field_canvas.mowed.iter() {
-        if *mowed && field_target.mowed.contains_key(coord) {
+
+    for (coord, canvas_mowed) in field_canvas.mowed.iter() {
+        let target_mowed = field_target.mowed.get(coord).unwrap_or(&false);
+
+        if *canvas_mowed && *target_mowed {
             return MowResult::TooMuch;
         }
     }
@@ -231,7 +217,8 @@ fn compare_fields(field_target: &Field, field_canvas: &Field) -> MowResult {
         .flat_map(|x| (0..field_target.size.x).map(move |y| (x as i32, y as i32)))
     {
         let mowed = field_target.mowed.get(&coord).unwrap_or(&false);
-        if !mowed && !field_canvas.mowed.contains_key(&coord) {
+        let field_is_mowed = field_canvas.mowed.get(&coord).unwrap_or(&false);
+        if !mowed && !field_is_mowed {
             return MowResult::TooLittle;
         }
     }
@@ -295,6 +282,8 @@ fn partial_mowed() {
     let mut target_mowed = HashMap::new();
     target_mowed.insert((0, 0), true);
     target_mowed.insert((0, 1), true);
+    target_mowed.insert((1, 1), false);
+
     let field_target = Field {
         size: UVec2::new(2, 2),
         mowed: target_mowed,
@@ -354,7 +343,7 @@ fn too_much_mowed() {
     let mut canvas_mowed = HashMap::new();
     canvas_mowed.insert((0, 0), true);
     canvas_mowed.insert((1, 1), true);
-    canvas_mowed.insert((1, 0), true);
+    canvas_mowed.insert((1, 0), false);
 
     let field_canvas = Field {
         size: UVec2::new(2, 2),
