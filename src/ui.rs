@@ -4,8 +4,15 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup);
+        app.add_startup_system(setup_countdown)
+            .init_resource::<ArrowImage>()
+            .add_startup_system(setup_commands);
     }
+}
+
+#[derive(Default)]
+pub struct ArrowImage {
+    pub(crate) handle: Handle<Image>,
 }
 
 #[derive(Component)]
@@ -13,7 +20,7 @@ pub struct CountDownMarkerSeconds;
 #[derive(Component)]
 pub struct CountDownMarkerMilliSeconds;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_countdown(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
@@ -21,6 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 flex_direction: FlexDirection::ColumnReverse,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
                 ..default()
             },
             color: Color::NONE.into(),
@@ -90,5 +98,46 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .insert(CountDownMarkerMilliSeconds);
                         });
                 });
+        });
+}
+
+#[derive(Component)]
+pub struct CommandsContainerMarker;
+
+fn setup_commands(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut arrow_image: ResMut<ArrowImage>,
+) {
+    let handle = asset_server.load("arrow.png");
+    arrow_image.handle = handle;
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexStart,
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Percent(20.0)),
+                        flex_direction: FlexDirection::Row,
+                        flex_wrap: FlexWrap::WrapReverse,
+                        justify_content: JustifyContent::FlexStart,
+                        align_items: AlignItems::FlexEnd,
+                        padding: UiRect::all(Val::Px(16.0)),
+                        ..default()
+                    },
+                    color: Color::NONE.into(),
+                    ..default()
+                })
+                .insert(CommandsContainerMarker);
         });
 }

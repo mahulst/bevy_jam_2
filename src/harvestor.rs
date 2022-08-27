@@ -1,10 +1,13 @@
 use crate::field::{FIELD_MARGIN_SIZE, FIELD_SIZE, FIELD_THICKNESS};
-use crate::ui::{CountDownMarkerMilliSeconds, CountDownMarkerSeconds};
+use crate::ui::{
+    ArrowImage, CommandsContainerMarker, CountDownMarkerMilliSeconds, CountDownMarkerSeconds,
+};
 use bevy::prelude::*;
 use bevy_easings::EaseFunction::QuadraticIn;
 use bevy_easings::*;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
 use iyes_loopless::prelude::*;
+use std::f32::consts::PI;
 use std::time::Instant;
 
 pub struct HarvestorPlugin;
@@ -233,24 +236,29 @@ fn keyboard_input(
     mut commands: Commands,
     keys: Res<Input<KeyCode>>,
     mut query: Query<&mut InputCommands>,
+    ui: Query<Entity, With<CommandsContainerMarker>>,
+    arrow_image: Res<ArrowImage>,
 ) {
+    let mut command = None;
     if keys.just_released(KeyCode::Left) {
-        query.iter_mut().for_each(|mut ic| {
-            ic.commands.push(HarvestorCommands::Left);
-        });
+        command = Some(HarvestorCommands::Left);
     } else if keys.just_released(KeyCode::Right) {
-        query.iter_mut().for_each(|mut ic| {
-            ic.commands.push(HarvestorCommands::Right);
-        });
+        command = Some(HarvestorCommands::Right);
     } else if keys.just_released(KeyCode::Up) {
-        query.iter_mut().for_each(|mut ic| {
-            ic.commands.push(HarvestorCommands::Up);
-        });
+        command = Some(HarvestorCommands::Up);
     } else if keys.just_released(KeyCode::Down) {
-        query.iter_mut().for_each(|mut ic| {
-            ic.commands.push(HarvestorCommands::Down);
-        });
+        command = Some(HarvestorCommands::Down);
     };
+
+    if let Some(command) = command {
+        query.iter_mut().for_each(|mut ic| {
+            ic.commands.push(command.clone());
+        });
+
+        let command_ui_entity = ui.single();
+        spawn_image_command_ui(&arrow_image, &mut commands, command_ui_entity, &command);
+    }
+
     if keys.just_released(KeyCode::Return) {
         query.iter_mut().for_each(|mut ic| {
             commands.insert_resource(NextState(HarvestorState::Running));
@@ -258,4 +266,38 @@ fn keyboard_input(
             ic.clear = true;
         });
     }
+}
+
+fn spawn_image_command_ui(
+    arrow_image: &Res<ArrowImage>,
+    commands: &mut Commands,
+    ui_entity: Entity,
+    command: &HarvestorCommands,
+) {
+    let mut command_ui_parent = commands.entity(ui_entity);
+    command_ui_parent.with_children(|p| {
+        let degrees = match command {
+            HarvestorCommands::Up => 180.0,
+            HarvestorCommands::Down => 0.0,
+            HarvestorCommands::Left => 270.0,
+            HarvestorCommands::Right => 90.0,
+        };
+
+        let radians = PI / 180.0 * degrees;
+        p.spawn_bundle(ImageBundle {
+            transform: Transform::default().with_rotation(Quat::from_axis_angle(Vec3::Z, radians)),
+            style: Style {
+                size: Size::new(Val::Px(50.0), Val::Px(50.0)),
+                margin: UiRect {
+                    left: Val::Px(0.0),
+                    right: Val::Px(8.0),
+                    top: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
+                },
+                ..default()
+            },
+            image: arrow_image.handle.clone().into(),
+            ..default()
+        });
+    });
 }

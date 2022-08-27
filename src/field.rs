@@ -1,4 +1,3 @@
-
 use crate::harvestor::{Harvestor, HarvestorCommandsClearedEvent};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
