@@ -1,6 +1,7 @@
 use crate::field::{FIELD_MARGIN_SIZE, FIELD_SIZE, FIELD_THICKNESS};
 use crate::ui::{
-    ArrowImage, CommandsContainerMarker, CountDownMarkerMilliSeconds, CountDownMarkerSeconds,
+    update_help_text, ArrowImage, CommandsContainerMarker, CountDownMarkerMilliSeconds,
+    CountDownMarkerSeconds, FontHandle, HelpTextContainer,
 };
 use bevy::prelude::*;
 use bevy_easings::EaseFunction::QuadraticIn;
@@ -237,7 +238,9 @@ fn keyboard_input(
     keys: Res<Input<KeyCode>>,
     mut query: Query<&mut InputCommands>,
     ui: Query<Entity, With<CommandsContainerMarker>>,
+    help_ui_container_q: Query<Entity, With<HelpTextContainer>>,
     arrow_image: Res<ArrowImage>,
+    font: Res<FontHandle>,
 ) {
     let mut command = None;
     if keys.just_released(KeyCode::Left) {
@@ -251,6 +254,19 @@ fn keyboard_input(
     };
 
     if let Some(command) = command {
+        // should update help text
+        let mut update_help = false;
+        query.iter().take(1).for_each(|h| {
+            if h.commands.is_empty() {
+                update_help = true;
+            }
+        });
+
+        if update_help {
+            let e = help_ui_container_q.single();
+            update_help_text(&font, &mut commands, e, "Press Enter to execute commands");
+        }
+
         query.iter_mut().for_each(|mut ic| {
             ic.commands.push(command.clone());
         });
@@ -260,6 +276,9 @@ fn keyboard_input(
     }
 
     if keys.just_released(KeyCode::Return) {
+        let e = help_ui_container_q.single();
+        update_help_text(&font, &mut commands, e, "Harvesting...");
+
         query.iter_mut().for_each(|mut ic| {
             commands.insert_resource(NextState(HarvestorState::Running));
 

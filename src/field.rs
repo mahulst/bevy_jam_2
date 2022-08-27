@@ -1,4 +1,5 @@
 use crate::harvestor::{Harvestor, HarvestorCommandsClearedEvent};
+use crate::ui::{update_help_text, FontHandle, HelpTextContainer};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
@@ -186,6 +187,9 @@ fn mow_target_field(
 fn compare_fields_on_commands_cleared(
     mut ev_harvestor_commands_cleared: EventReader<HarvestorCommandsClearedEvent>,
     field_q: Query<&Field>,
+    mut commands: Commands,
+    font: Res<FontHandle>,
+    help_ui_container_q: Query<Entity, With<HelpTextContainer>>,
 ) {
     for _ in ev_harvestor_commands_cleared.iter() {
         let target_field = field_q.iter().find(|f| f.field_type == FieldType::Target);
@@ -194,7 +198,14 @@ fn compare_fields_on_commands_cleared(
         if let (Some(target), Some(canvas)) = (target_field, canvas_field) {
             let result = compare_fields(target, canvas);
 
-            dbg!(result);
+            let result_text = match result {
+                MowResult::Perfect => "Success! :)",
+                MowResult::TooMuch => "Too many fields are harvested :( ",
+                MowResult::TooLittle => "Some fields are not harvested :(",
+            };
+
+            let e = help_ui_container_q.single();
+            update_help_text(&font, &mut commands, e, result_text);
         }
     }
 }
