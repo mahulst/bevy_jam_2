@@ -26,8 +26,7 @@ pub enum HarvestorState {
 
 impl Plugin for HarvestorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup)
-            .add_loopless_state(HarvestorState::AcceptingCommands)
+        app.add_loopless_state(HarvestorState::AcceptingCommands)
             .add_event::<HarvestorCommandsClearedEvent>()
             .add_system(move_harvestor)
             .init_resource::<TimeSpentWaitingOnCommands>()
@@ -37,7 +36,8 @@ impl Plugin for HarvestorPlugin {
             .register_inspectable::<InputCommands>()
             .add_system(watch_havestor_finished_moves.before(move_harvestor))
             .add_system(keyboard_input.before(move_harvestor))
-            .add_plugin(EasingsPlugin);
+            .add_plugin(EasingsPlugin)
+            .add_enter_system(HarvestorState::AcceptingCommands, setup);
     }
 }
 
@@ -125,7 +125,14 @@ struct InputCommands {
     clear: bool,
 }
 
-fn setup(mut commands: Commands, ass: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    ass: Res<AssetServer>,
+    harvestor_q: Query<Entity, With<Harvestor>>,
+) {
+    harvestor_q.iter().for_each(|e| {
+        commands.entity(e).despawn_recursive();
+    });
     spawn(&mut commands, &ass, IVec2::new(0, -1));
 }
 
@@ -256,6 +263,7 @@ fn move_harvestor(
         });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn keyboard_input(
     mut commands: Commands,
     keys: Res<Input<KeyCode>>,
@@ -264,49 +272,58 @@ fn keyboard_input(
     help_ui_container_q: Query<Entity, With<HelpTextContainer>>,
     arrow_image: Res<ArrowImage>,
     font: Res<FontHandle>,
+    state: Res<CurrentState<HarvestorState>>,
 ) {
     let mut command = None;
-    if keys.just_released(KeyCode::Left) {
-        command = Some(HarvestorCommands::Left);
-    } else if keys.just_released(KeyCode::Right) {
-        command = Some(HarvestorCommands::Right);
-    } else if keys.just_released(KeyCode::Up) {
-        command = Some(HarvestorCommands::Up);
-    } else if keys.just_released(KeyCode::Down) {
-        command = Some(HarvestorCommands::Down);
-    };
+    if state.0 == HarvestorState::AcceptingCommands {
+        if keys.just_released(KeyCode::Left) {
+            command = Some(HarvestorCommands::Left);
+        } else if keys.just_released(KeyCode::Right) {
+            command = Some(HarvestorCommands::Right);
+        } else if keys.just_released(KeyCode::Up) {
+            command = Some(HarvestorCommands::Up);
+        } else if keys.just_released(KeyCode::Down) {
+            command = Some(HarvestorCommands::Down);
+        };
+        if let Some(command) = command {
+            // should update help text
+            let mut update_help = false;
+            query.iter().take(1).for_each(|h| {
+                if h.commands.is_empty() {
+                    update_help = true;
+                }
+            });
 
-    if let Some(command) = command {
-        // should update help text
-        let mut update_help = false;
-        query.iter().take(1).for_each(|h| {
-            if h.commands.is_empty() {
-                update_help = true;
+            if update_help {
+                let e = help_ui_container_q.single();
+                update_help_text(&font, &mut commands, e, "Press Enter to execute commands");
             }
-        });
 
-        if update_help {
-            let e = help_ui_container_q.single();
-            update_help_text(&font, &mut commands, e, "Press Enter to execute commands");
+            query.iter_mut().for_each(|mut ic| {
+                ic.commands.push(command.clone());
+            });
+
+            let command_ui_entity = ui.single();
+            spawn_image_command_ui(&arrow_image, &mut commands, command_ui_entity, &command);
         }
 
-        query.iter_mut().for_each(|mut ic| {
-            ic.commands.push(command.clone());
-        });
+        if keys.just_released(KeyCode::Return) {
+            let e = help_ui_container_q.single();
+            update_help_text(&font, &mut commands, e, "Harvesting...");
 
-        let command_ui_entity = ui.single();
-        spawn_image_command_ui(&arrow_image, &mut commands, command_ui_entity, &command);
+            query.iter_mut().for_each(|mut ic| {
+                commands.insert_resource(NextState(HarvestorState::Running));
+
+                ic.clear = true;
+            });
+        }
     }
+    if state.0 == HarvestorState::Done && keys.just_released(KeyCode::Space) {
+        let command_ui_entity = ui.single();
 
-    if keys.just_released(KeyCode::Return) {
-        let e = help_ui_container_q.single();
-        update_help_text(&font, &mut commands, e, "Harvesting...");
-
-        query.iter_mut().for_each(|mut ic| {
-            commands.insert_resource(NextState(HarvestorState::Running));
-
-            ic.clear = true;
-        });
+        let mut command_ui_parent = commands.entity(command_ui_entity);
+        command_ui_parent.despawn_descendants();
+        commands.insert_resource(NextState(HarvestorState::AcceptingCommands));
     }
 }
 

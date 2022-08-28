@@ -17,10 +17,10 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
         .add_plugin(UIPlugin)
-        .add_plugin(FieldPlugin)
         .add_system(bevy::window::close_on_esc)
         // .add_plugin(WheatPlugin)
         .add_plugin(HarvestorPlugin)
+        .add_plugin(FieldPlugin)
         // .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .run();

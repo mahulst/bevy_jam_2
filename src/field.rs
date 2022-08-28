@@ -1,12 +1,13 @@
 use crate::harvestor::{
     command_to_direction, watch_havestor_finished_moves, Harvestor, HarvestorCommands,
-    HarvestorCommandsClearedEvent,
+    HarvestorCommandsClearedEvent, HarvestorState,
 };
 use crate::ui::{update_help_text, FontHandle, HelpTextContainer};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
 use itertools::Itertools;
+use iyes_loopless::prelude::AppLooplessStateExt;
 use rand::Rng;
 pub struct FieldPlugin;
 
@@ -17,7 +18,7 @@ impl Plugin for FieldPlugin {
             .init_resource::<FieldMaterialResource>()
             .add_system(change_mowed_material)
             .add_system(compare_fields_on_commands_cleared.after(mow_target_field))
-            .add_startup_system(setup)
+            .add_enter_system(HarvestorState::AcceptingCommands, setup)
             .register_inspectable::<Field>();
     }
 }
@@ -46,7 +47,12 @@ fn setup(
     mut commands: Commands,
     mut field_material: ResMut<FieldMaterialResource>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    fields_q: Query<Entity, With<Field>>,
 ) {
+    fields_q.iter().for_each(|e| {
+        commands.entity(e).despawn_recursive();
+    });
+
     let material_field_fresh = materials.add(FIELD_FRESH_COLOR.into());
     let material_field_mowed = materials.add(FIELD_MOWED_COLOR.into());
     field_material.not_mowed = material_field_fresh;
@@ -56,8 +62,8 @@ fn setup(
 
     mow_random_path_in_field(
         IVec2::new(0, 0),
-        15,
-        20,
+        25,
+        25,
         UVec2::new(10, 10),
         &mut target_mowed,
     );
@@ -91,6 +97,7 @@ fn mow_random_path_in_field(
     let mut rng = rand::thread_rng();
 
     for _ in 0..=amount {
+        field.insert((start.x, start.y), false);
         let num = rng.gen_range(0..100);
         if num < chance_of_redirect {
             random_direction = rand::random();
@@ -99,11 +106,10 @@ fn mow_random_path_in_field(
 
         start.x -= vec_direction.x as i32;
         start.y += vec_direction.z as i32;
-        let start = start.clamp(
+        let _start = start.clamp(
             IVec2::new(0, 0),
             IVec2::new(field_size.x as i32, field_size.y as i32),
         );
-        field.insert((start.x, start.y), false);
     }
 }
 
@@ -227,9 +233,11 @@ fn compare_fields_on_commands_cleared(
             let result = compare_fields(target, canvas);
 
             let result_text = match result {
-                MowResult::Perfect => "Success! :)",
-                MowResult::TooMuch => "Too many fields are harvested :( ",
-                MowResult::TooLittle => "Some fields are not harvested :(",
+                MowResult::Perfect => "Success! :) Press space to play again",
+                MowResult::TooMuch => "Too many fields are harvested :( Press space to play again",
+                MowResult::TooLittle => {
+                    "Some fields are not harvested :( Press space to play again"
+                }
             };
 
             let e = help_ui_container_q.single();
