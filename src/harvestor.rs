@@ -8,6 +8,10 @@ use bevy_easings::EaseFunction::QuadraticIn;
 use bevy_easings::*;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
 use iyes_loopless::prelude::*;
+use rand::{
+    distributions::{Distribution, Standard},
+    Rng,
+};
 use std::f32::consts::PI;
 use std::time::Instant;
 
@@ -95,13 +99,24 @@ pub struct Harvestor {
     turning: bool,
 }
 
-#[derive(Debug, Inspectable, Default, PartialEq, Clone)]
-enum HarvestorCommands {
+#[derive(Debug, Inspectable, Default, PartialEq, Eq, Clone)]
+pub enum HarvestorCommands {
     #[default]
     Up,
     Down,
     Left,
     Right,
+}
+
+impl Distribution<HarvestorCommands> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> HarvestorCommands {
+        match rng.gen_range(0..=3) {
+            0 => HarvestorCommands::Up,
+            1 => HarvestorCommands::Down,
+            2 => HarvestorCommands::Left,
+            _ => HarvestorCommands::Right,
+        }
+    }
 }
 
 #[derive(Component, Inspectable, Default)]
@@ -146,7 +161,7 @@ fn spawn(commands: &mut Commands, ass: &Res<AssetServer>, position: IVec2) {
         });
 }
 
-fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
+pub fn command_to_direction(input: &HarvestorCommands) -> Vec3 {
     match input {
         HarvestorCommands::Up => Vec3::Z,
         HarvestorCommands::Down => -Vec3::Z,

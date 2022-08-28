@@ -1,9 +1,13 @@
-use crate::harvestor::{watch_havestor_finished_moves, Harvestor, HarvestorCommandsClearedEvent};
+use crate::harvestor::{
+    command_to_direction, watch_havestor_finished_moves, Harvestor, HarvestorCommands,
+    HarvestorCommandsClearedEvent,
+};
 use crate::ui::{update_help_text, FontHandle, HelpTextContainer};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
-
+use itertools::Itertools;
+use rand::Rng;
 pub struct FieldPlugin;
 
 impl Plugin for FieldPlugin {
@@ -49,7 +53,14 @@ fn setup(
     field_material.mowed = material_field_mowed;
 
     let mut target_mowed = HashMap::new();
-    target_mowed.insert((0, 0), true);
+
+    mow_random_path_in_field(
+        IVec2::new(0, 0),
+        15,
+        20,
+        UVec2::new(10, 10),
+        &mut target_mowed,
+    );
     commands.spawn().insert(Field {
         size: UVec2::new(10, 10),
         field_type: FieldType::Target,
@@ -60,6 +71,40 @@ fn setup(
         field_type: FieldType::Canvas,
         mowed: HashMap::new(),
     });
+}
+
+fn mow_random_path_in_field(
+    start: IVec2,
+    amount: u32,
+    chance_of_redirect: u32,
+    field_size: UVec2,
+    field: &mut HashMap<(i32, i32), bool>,
+) {
+    (0..field_size.x)
+        .cartesian_product(0..field_size.y)
+        .for_each(|(x, y)| {
+            field.insert((x as i32, y as i32), true);
+        });
+    let mut start = start;
+    let mut random_direction = HarvestorCommands::Up;
+
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..=amount {
+        let num = rng.gen_range(0..100);
+        if num < chance_of_redirect {
+            random_direction = rand::random();
+        }
+        let vec_direction = command_to_direction(&random_direction);
+
+        start.x -= vec_direction.x as i32;
+        start.y += vec_direction.z as i32;
+        let start = start.clamp(
+            IVec2::new(0, 0),
+            IVec2::new(field_size.x as i32, field_size.y as i32),
+        );
+        field.insert((start.x, start.y), false);
+    }
 }
 
 const FIELD_FRESH_COLOR: Color = Color::rgb(0.536, 0.389, 0.076);
@@ -203,7 +248,6 @@ enum MowResult {
 fn compare_fields(field_target: &Field, field_canvas: &Field) -> MowResult {
     let _result = false;
     // canvas should not have mowed a field square that's mowed in target
-
     for (coord, canvas_mowed) in field_canvas.mowed.iter() {
         let target_mowed = field_target.mowed.get(coord).unwrap_or(&false);
 
