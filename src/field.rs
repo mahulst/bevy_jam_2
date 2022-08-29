@@ -5,7 +5,7 @@ use crate::harvestor::{
 use crate::ui::{update_help_text, FontHandle, HelpTextContainer};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
-use bevy_inspector_egui::{Inspectable, RegisterInspectable};
+use bevy_inspector_egui::Inspectable;
 use itertools::Itertools;
 use iyes_loopless::prelude::AppLooplessStateExt;
 use rand::Rng;
@@ -18,8 +18,8 @@ impl Plugin for FieldPlugin {
             .init_resource::<FieldMaterialResource>()
             .add_system(change_mowed_material)
             .add_system(compare_fields_on_commands_cleared.after(mow_target_field))
-            .add_enter_system(HarvestorState::AcceptingCommands, setup)
-            .register_inspectable::<Field>();
+            .add_enter_system(HarvestorState::AcceptingCommands, setup);
+        // .register_inspectable::<Field>();
     }
 }
 

@@ -4,16 +4,16 @@ use crate::ui::{
     CountDownMarkerSeconds, FontHandle, HelpTextContainer,
 };
 use bevy::prelude::*;
+use bevy::utils::Instant;
 use bevy_easings::EaseFunction::QuadraticIn;
 use bevy_easings::*;
-use bevy_inspector_egui::{Inspectable, RegisterInspectable};
+use bevy_inspector_egui::Inspectable;
 use iyes_loopless::prelude::*;
 use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
 use std::f32::consts::PI;
-use bevy::utils::Instant;
 
 pub struct HarvestorPlugin;
 
@@ -32,8 +32,8 @@ impl Plugin for HarvestorPlugin {
             .init_resource::<TimeSpentWaitingOnCommands>()
             .add_enter_system(HarvestorState::AcceptingCommands, reset_time_waiting)
             .add_system(update_count_down.run_in_state(HarvestorState::AcceptingCommands))
-            .register_inspectable::<Harvestor>()
-            .register_inspectable::<InputCommands>()
+            // .register_inspectable::<Harvestor>()
+            // .register_inspectable::<InputCommands>()
             .add_system(watch_havestor_finished_moves.before(move_harvestor))
             .add_system(keyboard_input.before(move_harvestor))
             .add_plugin(EasingsPlugin)
