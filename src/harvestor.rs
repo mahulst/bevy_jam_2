@@ -13,7 +13,7 @@ use rand::{
     Rng,
 };
 use std::f32::consts::PI;
-use std::time::Instant;
+use bevy::utils::Instant;
 
 pub struct HarvestorPlugin;
 
