@@ -1,8 +1,11 @@
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use crate::field::FieldPlugin;
 use bevy::prelude::*;
+use bevy_inspector_egui::WorldInspectorPlugin;
 
 use crate::harvestor::HarvestorPlugin;
 use crate::ui::UIPlugin;
+use crate::wheat::WheatPlugin;
 
 mod field;
 mod harvestor;
@@ -13,11 +16,11 @@ mod wheat_mesh;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // .add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
         .add_plugin(UIPlugin)
         .add_system(bevy::window::close_on_esc)
-        // .add_plugin(WheatPlugin)
+        .add_plugin(WheatPlugin)
         .add_plugin(HarvestorPlugin)
         .add_plugin(FieldPlugin)
         // .add_plugin(LogDiagnosticsPlugin::default())

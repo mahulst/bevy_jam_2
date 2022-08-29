@@ -1,5 +1,7 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
+use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
+use bevy::render::renderer::RenderQueue;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
@@ -36,6 +38,55 @@ impl Plugin for WheatPlugin {
     }
 }
 
+struct TimeMeta {
+    buffer: Buffer,
+    bind_group: Option<BindGroup>,
+}
+
+#[derive(Default)]
+struct ExtractedTime {
+    seconds_since_startup: f32,
+}
+
+impl ExtractResource for ExtractedTime {
+    type Source = Time;
+
+    fn extract_resource(time: &Self::Source) -> Self {
+        ExtractedTime {
+            seconds_since_startup: time.seconds_since_startup() as f32,
+        }
+    }
+}
+
+// write the extracted time into the corresponding uniform buffer
+fn prepare_time(
+    time: Res<ExtractedTime>,
+    time_meta: ResMut<TimeMeta>,
+    render_queue: Res<RenderQueue>,
+) {
+    render_queue.write_buffer(
+        &time_meta.buffer,
+        0,
+        bevy::core::cast_slice(&[time.seconds_since_startup]),
+    );
+}
+
+// create a bind group for the time uniform buffer
+fn queue_time_bind_group(
+    render_device: Res<RenderDevice>,
+    mut time_meta: ResMut<TimeMeta>,
+    pipeline: Res<CustomPipeline>,
+) {
+    let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+        label: None,
+        layout: &pipeline.time_bind_group_layout,
+        entries: &[BindGroupEntry {
+            binding: 0,
+            resource: time_meta.buffer.as_entire_binding(),
+        }],
+    });
+    time_meta.bind_group = Some(bind_group);
+}
 #[derive(Default)]
 struct WheatMeshHandle {
     handle: Handle<Mesh>,
@@ -65,10 +116,12 @@ fn setup(mut commands: Commands, wheat_mesh: Res<WheatMeshHandle>) {
                     let random = open_simplex.get([x as f64 * 150.0, y as f64 * 150.0, 0.0]);
                     let random2 = open_simplex.get([x as f64, y as f64, 200.0]) / 10.0;
                     let random3 = open_simplex.get([x as f64, y as f64, 4000.0]) / 20.0;
+                    let position = Vec3::new(x * 10.0 - 5.0, 0.0, y * 10.0 - 5.0);
+                    dbg!(position);
                     InstanceData {
-                        position: Vec3::new(x * 10.0 - 5.0, 0.0, y * 10.0 - 5.0),
+                        position,
                         scale: 0.5 + random as f32 / 50.0,
-                        rotation: Vec3::new(random2 as f32, 0.0, random3 as f32),
+                        rotation: Quat::from_axis_angle(Vec3::new(position.x, 1.0, position.z), 1.0).to_array().into(),
                         color: Color::rgb(0.536, 0.389, 0.076).as_rgba_f32(),
                     }
                 })
@@ -96,13 +149,28 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default());
+        let render_device = app.world.resource::<RenderDevice>();
+        let buffer = render_device.create_buffer(&BufferDescriptor {
+            label: Some("time uniform buffer"),
+            size: std::mem::size_of::<f32>() as u64,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default())
+            .add_plugin(ExtractResourcePlugin::<ExtractedTime>::default());
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
+            .insert_resource(TimeMeta {
+                buffer,
+                bind_group: None,
+            })
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
             .add_system_to_stage(RenderStage::Queue, queue_custom)
-            .add_system_to_stage(RenderStage::Prepare, prepare_instance_buffers);
+            .add_system_to_stage(RenderStage::Prepare, prepare_instance_buffers)
+            .add_system_to_stage(RenderStage::Prepare, prepare_time)
+            .add_system_to_stage(RenderStage::Queue, queue_time_bind_group);
     }
 }
 
@@ -112,7 +180,7 @@ struct InstanceData {
     position: Vec3,
     scale: f32,
     color: [f32; 4],
-    rotation: Vec3,
+    rotation: Vec4,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -180,6 +248,7 @@ fn prepare_instance_buffers(
 pub struct CustomPipeline {
     shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,
+    time_bind_group_layout: BindGroupLayout,
 }
 
 impl FromWorld for CustomPipeline {
@@ -188,11 +257,27 @@ impl FromWorld for CustomPipeline {
         asset_server.watch_for_changes().unwrap();
         let shader = asset_server.load("shaders/instancing.wgsl");
 
+        let render_device = world.resource::<RenderDevice>();
+        let time_bind_group_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("time bind group"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(std::mem::size_of::<f32>() as u64),
+                    },
+                    count: None,
+                }],
+            });
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
             shader,
             mesh_pipeline: mesh_pipeline.clone(),
+            time_bind_group_layout,
         }
     }
 }
@@ -221,8 +306,9 @@ impl SpecializedMeshPipeline for CustomPipeline {
                     offset: VertexFormat::Float32x4.size(),
                     shader_location: 4,
                 },
+                // rotation
                 VertexAttribute {
-                    format: VertexFormat::Float32x3,
+                    format: VertexFormat::Float32x4,
                     offset: VertexFormat::Float32x4.size() * 2,
                     shader_location: 5,
                 },
@@ -232,6 +318,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
         descriptor.layout = Some(vec![
             self.mesh_pipeline.view_layout.clone(),
             self.mesh_pipeline.mesh_layout.clone(),
+            self.time_bind_group_layout.clone(),
         ]);
 
         Ok(descriptor)
@@ -242,8 +329,27 @@ type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
+    SetTimeBindGroup<2>,
     DrawMeshInstanced,
 );
+
+struct SetTimeBindGroup<const I: usize>;
+
+impl<const I: usize> EntityRenderCommand for SetTimeBindGroup<I> {
+    type Param = SRes<TimeMeta>;
+
+    fn render<'w>(
+        _view: Entity,
+        _item: Entity,
+        time_meta: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let time_bind_group = time_meta.into_inner().bind_group.as_ref().unwrap();
+        pass.set_bind_group(I, time_bind_group, &[]);
+
+        RenderCommandResult::Success
+    }
+}
 
 pub struct DrawMeshInstanced;
 

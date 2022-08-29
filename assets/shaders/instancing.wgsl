@@ -20,7 +20,7 @@ struct Vertex {
 
     @location(3) i_pos_scale: vec4<f32>,
     @location(4) i_color: vec4<f32>,
-    @location(5) rotation: vec3<f32>,
+    @location(5) rotation: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -30,9 +30,55 @@ struct VertexOutput {
     @location(2) color: vec4<f32>,
 };
 
+struct Time {
+    time_since_startup: f32,
+};
+
+@group(2) @binding(0)
+var<uniform> time: Time;
+
+
+//
+//
+//fn multQuat(q1: vec4<f32>, q2: vec4<f32>) -> vec4<f32> {
+//    return vec4<f32>(
+//        q1.w * q2.x + q1.x * q2.w + q1.z * q2.y - q1.y * q2.z,
+//        q1.w * q2.y + q1.y * q2.w + q1.x * q2.z - q1.z * q2.x,
+//        q1.w * q2.z + q1.z * q2.w + q1.y * q2.x - q1.x * q2.y,
+//        q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z
+//    );
+//}
+//
+//fn rotate_vector(quat: vec4<f32>, vect: vec3<f32>) -> vec3<f32> {
+//    var qv: vec4<f32> = multQuat( quat, vec4<f32>(vect, 0.0) );
+//    return multQuat( qv, vec4(-quat.x, -quat.y, -quat.z, quat.w) ).xyz;
+//}
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz + vertex.rotation;
+    var _tree_sway_speed: f32 = 3.0;
+    var _wind_size: f32 = 15.0;
+    var _tree_sway_stutter: f32 = 1.5;
+    var _tree_sway_stutter_influence: f32 = 0.2;
+    var _tree_sway_disp: f32 = 0.3;
+    var _leaves_wiggle_speed: f32 = 0.1;
+    var _leaves_wiggle_disp: f32 = 0.07;
+    var _branches_disp: f32 = 0.3;
+    var _wind_dir: vec3<f32> = vec3<f32>(0.5);
+
+//    var position = rotate_vector(vertex.rotation, vertex.position);
+    var position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
+     // Movement and Wiggle
+    position.x += (cos(time.time_since_startup * _tree_sway_speed + (position.x/_wind_size) + (sin(time.time_since_startup * _tree_sway_stutter * _tree_sway_speed + (position.x/_wind_size)) * _tree_sway_stutter_influence) ) + 1.0)/2.0 * _tree_sway_disp * _wind_dir.x * (position.y / 10.0) +
+    cos(time.time_since_startup * position.x * _leaves_wiggle_speed + (position.x/_wind_size)) * _leaves_wiggle_disp * _wind_dir.x * vertex.i_color.y * 1.0;
+
+    position.z += (cos(time.time_since_startup * _tree_sway_speed + (position.z/_wind_size) + (sin(time.time_since_startup * _tree_sway_stutter * _tree_sway_speed + (position.z/_wind_size)) * _tree_sway_stutter_influence) ) + 1.0)/2.0 * _tree_sway_disp * _wind_dir.z * (position.y / 10.0) +
+    cos(time.time_since_startup * position.z * _leaves_wiggle_speed + (position.x/_wind_size)) * _leaves_wiggle_disp * _wind_dir.z * vertex.i_color.y * 1.0;
+
+//    position.y += cos(time.time_since_startup * _tree_sway_speed + (position.z/_wind_size)) * _tree_sway_disp * _wind_dir.y * (position.y / 10.0);
+
+//    //Branches Movement
+//    position.y += sin(time.time_since_startup * _tree_sway_speed + _wind_dir.x + (position.z/_wind_size)) * _branches_disp  * vertex.i_color.x * 1.0;
+
 
     var out: VertexOutput;
     out.world_position = mesh_position_local_to_world(mesh.model, vec4<f32>(position, 1.0));
