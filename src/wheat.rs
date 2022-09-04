@@ -118,10 +118,19 @@ fn setup(mut commands: Commands, wheat_mesh: Res<WheatMeshHandle>) {
                     let random3 = open_simplex.get([x as f64, y as f64, 4000.0]) / 20.0;
                     let position = Vec3::new(x * 10.0 - 5.0, 0.0, y * 10.0 - 5.0);
                     dbg!(position);
+
+                    let rotation = if position == Vec3::ZERO {
+                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
+                        // as Quaternions can effect scale if they're not created correctly
+                        Mat4::from_quat(Quat::from_axis_angle(position.normalize(), (0.0_f32).to_radians()))
+                    } else {
+                        Mat4::from_quat(Quat::from_axis_angle(Vec3::Z, (2.0_f32).to_radians()))
+                    };
+
                     InstanceData {
                         position,
                         scale: 0.5 + random as f32 / 50.0,
-                        rotation: Quat::from_axis_angle(Vec3::new(position.x, 1.0, position.z), 1.0).to_array().into(),
+                        rotation,
                         color: Color::rgb(0.536, 0.389, 0.076).as_rgba_f32(),
                     }
                 })
@@ -180,7 +189,7 @@ struct InstanceData {
     position: Vec3,
     scale: f32,
     color: [f32; 4],
-    rotation: Vec4,
+    rotation: Mat4,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -311,6 +320,21 @@ impl SpecializedMeshPipeline for CustomPipeline {
                     format: VertexFormat::Float32x4,
                     offset: VertexFormat::Float32x4.size() * 2,
                     shader_location: 5,
+                },
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: VertexFormat::Float32x4.size() * 3,
+                    shader_location: 6,
+                },
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: VertexFormat::Float32x4.size() * 4,
+                    shader_location: 7,
+                },
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: VertexFormat::Float32x4.size() * 5,
+                    shader_location: 8,
                 },
             ],
         });
